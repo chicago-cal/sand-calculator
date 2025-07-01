@@ -1,0 +1,91 @@
+import streamlit as st
+import json
+
+# ✅ 모험가별 모래양 데이터 (Lv -> 모래양)
+모래양_DB = {JSON_PLACEHOLDER_SAND}
+
+# ✅ 공생합 조합 데이터
+공생합_조합 = {JSON_PLACEHOLDER_SYNERGY}
+
+모험가_목록 = ['피기', '판다', '곰', '오공', '가가린', '레오나르도', '라파엘']
+
+st.title("🌾 모험가 모래 계산기")
+st.markdown("""
+- 모험가를 선택하고 레벨을 입력하면 추천 모험가 Lv이 계산됩니다.
+- 용소녀는 Lv 100 고정입니다.
+""")
+
+# ✅ 사용자 입력 받기
+st.subheader("5️⃣ 다음 재분배 날짜 계산")
+조석_난이도 = st.number_input("조석 소탕 난이도 (1 ~ 100)", min_value=1, max_value=100, value=50, step=1)
+사용자_Lv = {}
+총모래양 = 0
+
+with st.form("input_form"):
+    st.subheader("1️⃣ 모험가 선택 및 레벨 입력")
+    cols = st.columns(4)
+    for i, 모험가 in enumerate(모험가_목록):
+        with cols[i % 4]:
+            사용 = st.checkbox(f"{모험가} 사용", key=f"chk_{모험가}")
+            if 사용:
+                lv = st.number_input(f"{모험가} Lv", min_value=2, max_value=100, step=1, key=f"lv_{모험가}")
+            else:
+                lv = 0
+            사용자_Lv[모험가] = lv
+
+    제출 = st.form_submit_button("모래양 계산 및 최적 조합 추천", use_container_width=True)
+
+if 제출:
+    # ✅ 총 모래양 계산 (용소녀 포함)
+    총모래양 = 모래양_DB['용소녀']['100']
+    for 모험가, lv in 사용자_Lv.items():
+        if lv > 0:
+            총모래양 += 모래양_DB[모험가].get(str(lv), 0)
+
+    st.subheader("2️⃣ 총 모래양 결과")
+    st.success(f"총 모래양: {총모래양:,}개")
+
+    # ✅ 조건에 맞는 조합 필터링
+    후보 = []
+    for 조합 in 공생합_조합:
+        조합_모험가들 = 조합['모험가들']
+        조합_소모량 = 조합['모래소모량']
+
+        # off된 모험가가 조합에 포함되면 제외
+        조건_위배 = False
+        for 모험가, lv in 사용자_Lv.items():
+            if lv == 0 and 조합_모험가들.get(모험가, 0) > 0:
+                조건_위배 = True
+                break
+
+        if 조건_위배:
+            continue
+
+        if 조합_소모량 <= 총모래양:
+            후보.append(조합)
+
+    # ✅ 공생합 기준 최적 조합 선택
+    if 후보:
+        최적 = max(후보, key=lambda x: x['공생합'])
+        st.subheader("3️⃣ 추천 조합")
+        st.info(f"✅ 추천 조합: {최적['조합명']} (공생합 {최적['공생합']}, 모래소모량 {최적['모래소모량']:,})\n" +
+         " ".join([f"{모험가}: Lv {lv}" for 모험가, lv in 최적['모험가들'].items()]))
+
+
+    else:
+        st.warning("조건을 만족하는 공생합 조합이 없습니다.")
+
+    # ✅ 4️⃣ 다음 추천 조합 계산 및 표시
+    if len(후보) >= 2:
+        정렬된_후보 = sorted(후보, key=lambda x: (-x['공생합'], x['모래소모량']))
+        차선 = 정렬된_후보[1]
+        st.subheader("4️⃣ 다음 추천 조합")
+        st.info(f"✅ 다음 추천 조합: {차선['조합명']} (공생합 {차선['공생합']}, 모래소모량 {차선['모래소모량']:,})\n" +
+            " ".join([f"{모험가}: Lv {lv}" for 모험가, lv in 차선['모험가들'].items()]))
+
+        # ✅ 5️⃣ 재분배 예상 날짜 계산
+        차이 = 차선['모래소모량'] - 최적['모래소모량']
+        if 조석_난이도 > 0:
+            예상_일수 = (차이 // (조석_난이도 * 5)) + (1 if 차이 % (조석_난이도 * 5) > 0 else 0)
+            st.subheader("📅 예상 재분배 가능 시점")
+            st.success(f"현재 조석 소탕 난이도 기준으로 약 {예상_일수}일 뒤에 재분배 가능합니다.")
