@@ -67,7 +67,6 @@ if 제출:
     st.subheader("2️⃣ 총 모래양 결과")
     st.success(f"총 모래양: {총모래양:,}개")
 
-    사용가능모래 = 총모래양 - 모래양_DB['용소녀']['100']
     후보 = []
     for 조합 in 공생합_조합:
         조건_위배 = False
@@ -77,9 +76,9 @@ if 제출:
                 break
         if 조건_위배:
             continue
-        if 조합['모래소모량'] <= 사용가능모래:
-            후보.append(조합)
+        후보.append(조합)
 
+    # 3번: 가장 공생합이 높은 조합
     최적 = max(후보, key=lambda x: x['공생합']) if 후보 else None
 
     if 최적:
@@ -94,8 +93,9 @@ if 제출:
         </table>
         """, unsafe_allow_html=True)
 
-        나머지후보 = [x for x in 후보 if x != 최적 and x['공생합'] < 최적['공생합']]
-        다음 = max(나머지후보, key=lambda x: x['공생합']) if 나머지후보 else None
+        # 4번: 3번보다 공생합이 높은 조합 중 모래소모량이 가장 적은 것
+        더높은후보 = [x for x in 후보 if x['공생합'] > 최적['공생합']]
+        다음 = min(더높은후보, key=lambda x: x['모래소모량']) if 더높은후보 else None
 
         if 다음:
             st.subheader("4️⃣ 다음 추천 조합")
